@@ -2,42 +2,42 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from nltk.sentiment import SentimentIntensityAnalyzer
-from collections import Counter
-import re
 from wordcloud import WordCloud
+import re
+from collections import Counter
 
+# Set page configuration
 st.set_page_config(page_title="News Sentiment Analyzer", layout="wide")
 
-# Load your data here
+# Cache the data loading function
 @st.cache_data
 def load_data(uploaded_file):
     df = pd.read_csv(uploaded_file)
     df['date'] = pd.to_datetime(df['date'], errors='coerce')
     return df
 
+# Clean text function for preprocessing
 def clean_text(text):
-    text = re.sub(r"http\S+", "", text)
-    text = re.sub(r"[^a-zA-Z\s]", "", text)
+    text = re.sub(r"http\\S+", "", text)
+    text = re.sub(r"[^a-zA-Z\\s]", "", text)
     return text.lower()
 
+# Main app title
 st.title("📰 News Sentiment Analyzer")
+
+# File uploader for CSV file
 uploaded_file = st.file_uploader("📂 Upload your `reduced_news_data.csv` file", type=["csv"])
 
 if uploaded_file:
+    # Load data and preprocess
     df = load_data(uploaded_file)
     df['clean_text'] = df['text'].astype(str).apply(clean_text)
 
-    # Define the tabs and layout
+    # Define tabs
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
-        "📌 Overview", 
-        "📚 Visualizing Genres", 
-        "🧹 Genres with Text Cleaning",
-        "🔡 Word Frequency Comparison", 
-        "📊 Sentiment Distribution",
-        "📈 Sentiment Comparison", 
-        "🔠 Top Words by Subject", 
-        "⚖️ Subject-wise Sentiment Comparison"
+        "📌 Overview", "📚 Visualizing Genres", "🧹 Genres with Text Cleaning",
+        "🔡 Word Frequency Comparison", "📊 Sentiment Distribution",
+        "📈 Sentiment Comparison", "🔠 Top Words by Subject", "⚖️ Subject-wise Sentiment Comparison"
     ])
 
     with tab1:
@@ -97,5 +97,6 @@ if uploaded_file:
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
         ax.set_title("Sentiment by Subject")
         st.pyplot(fig)
+
 else:
     st.warning("Please upload your `reduced_news_data.csv` file to begin.")
