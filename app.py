@@ -86,8 +86,11 @@ if uploaded_file:
 
     with tab6:
         st.header("Sentiment Comparison by Genre")
-        group = df.groupby(['subject', 'label']).size().unstack(fill_value=0)
-        st.bar_chart(group)
+        if 'label' in df.columns and 'subject' in df.columns:
+            group = df.groupby(['subject', 'label']).size().unstack(fill_value=0)
+            st.bar_chart(group)
+        else:
+            st.error("The necessary columns ('subject' and 'label') are not available in the data.")
 
     with tab7:
         st.header("Top Words by Subject")
@@ -98,11 +101,14 @@ if uploaded_file:
 
     with tab8:
         st.header("Subject-wise Sentiment Comparison")
-        fig, ax = plt.subplots(figsize=(10, 6))
-        sns.countplot(data=df, x='subject', hue='label', palette='Set2', ax=ax)
-        ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
-        ax.set_title("Sentiment by Subject")
-        st.pyplot(fig)
+        if 'subject' in df.columns and 'label' in df.columns:
+            fig, ax = plt.subplots(figsize=(10, 6))
+            sns.countplot(data=df, x='subject', hue='label', palette='Set2', ax=ax)
+            ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
+            ax.set_title("Sentiment by Subject")
+            st.pyplot(fig)
+        else:
+            st.error("The necessary columns ('subject' and 'label') are not available in the data.")
 
 else:
     st.warning("Please upload your `reduced_news_data.csv` file to begin.")
