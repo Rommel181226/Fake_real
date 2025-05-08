@@ -1,153 +1,101 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import nltk
-import re
-import spacy
 from wordcloud import WordCloud
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
-from nltk.stem import WordNetLemmatizer
-from textblob import TextBlob
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-from transformers import pipeline
+import re
 from collections import Counter
 
-# Download necessary NLTK resources
-nltk.download('punkt')
-nltk.download('stopwords')
-nltk.download('wordnet')
+# Function to load data
+@st.cache_resource
+def load_data(uploaded_file):
+    df = pd.read_csv(uploaded_file)
+    df['date'] = pd.to_datetime(df['date'], errors='coerce')  # Convert date column
+    return df
 
-# Load spaCy model
-try:
-    nlp_spacy = spacy.load("en_core_web_sm")
-except:
-    from spacy.cli import download
-    download("en_core_web_sm")
-    nlp_spacy = spacy.load("en_core_web_sm")
-
-# Load summarizer
-summarizer = pipeline("summarization")
-
-# Page setup
-st.set_page_config(page_title="🧠 NLP Dashboard", layout="wide")
-st.title("📋 NLP Analysis Dashboard")
-
-# Load data directly
-try:
-    df = pd.read_csv("reduced_news_data.csv")
-    st.success("✅ File loaded: `reduced_news_data.csv`")
-except Exception as e:
-    st.error(f"❌ Error loading CSV file: {e}")
-    st.stop()
-
-# Select text column
-text_column = st.selectbox("📌 Select the column containing text", df.columns)
-df['text'] = df[text_column].astype(str)
-
-# Clean text
-stop_words = set(stopwords.words('english'))
-lemmatizer = WordNetLemmatizer()
-
+# Function to clean text
 def clean_text(text):
-    text = text.lower()
-    text = re.sub(r"http\S+|www\S+|https\S+", '', text, flags=re.MULTILINE)
-    text = re.sub(r'\@w+|\#','', text)
-    text = re.sub(r'[^a-zA-Z\s]', '', text)
-    tokens = word_tokenize(text)
-    tokens = [lemmatizer.lemmatize(w) for w in tokens if w not in stop_words]
-    return " ".join(tokens)
+    text = re.sub(r"http\S+", "", text)  # Remove URLs
+    text = re.sub(r"[^a-zA-Z\s]", "", text)  # Keep only alphabets and spaces
+    return text.lower()
 
-df['clean_text'] = df['text'].apply(clean_text)
+# Title for the Streamlit app
+st.title("📰 News Sentiment Analyzer")
 
-# Create tabs
-tabs = st.tabs([
-    "📌 Goal", "🧹 Cleaning", "🔍 EDA", "😊 Sentiment", "🏷️ NER",
-    "📚 Summarization", "📈 Visualize", "🧪 Evaluation"
-])
+# File uploader widget to upload CSV file
+uploaded_file = st.file_uploader("📂 Upload your `reduced_news_data.csv` file", type=["csv"])
 
-with tabs[0]:
-    st.subheader("Define Your NLP Goal")
-    goal = st.radio("Choose your goal:", [
-        "Sentiment Analysis", "Text Classification", "Named Entity Recognition (NER)", "Summarization"
-    ])
-    st.success(f"You chose: **{goal}**")
+if uploaded_file:
+    # Load and clean the data
+    df = load_data(uploaded_file)
+    
+    # Check if the necessary columns exist
+    if 'text' not in df.columns or 'subject' not in df.columns:
+        st.error("The dataset must contain 'text' and 'subject' columns.")
+    else:
+        # Clean the text data
+        df['clean_text'] = df['text'].astype(str).apply(clean_text)
 
-with tabs[1]:
-    st.subheader("Cleaned Text Preview")
-    st.dataframe(df[['text', 'clean_text']].head(10))
+        # Proceed with tabs and data processing after checking columns
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            "📌 Overview", "📚 Visualizing Genres", "🧹 Genres with Text Cleaning",
+            "🔡 Word Frequency Comparison", "🔠 Top Words by Subject"
+        ])
 
-with tabs[2]:
-    st.subheader("Exploratory Data Analysis")
-    word_list = " ".join(df['clean_text']).split()
-    freq = Counter(word_list).most_common(30)
-    freq_df = pd.DataFrame(freq, columns=['Word', 'Frequency'])
+        with tab1:
+            st.header("Overview")
+            st.dataframe(df.head(100))  # Display the first 100 rows of the dataframe
+            st.write(f"🧾 Total Articles: {len(df)}")
+            st.write(f"📅 Date Range: {df['date'].min()} to {df['date'].max()}")
+            # Add some additional data results in this tab
+            st.write("### Summary Statistics")
+            st.write(df.describe())
 
-    fig, ax = plt.subplots()
-    sns.barplot(x='Frequency', y='Word', data=freq_df, ax=ax)
-    st.pyplot(fig)
+        with tab2:
+            st.header("Visualizing Genres")
+            subject_counts = df['subject'].value_counts()
+            fig, ax = plt.subplots()
+            sns.barplot(y=subject_counts.index, x=subject_counts.values, ax=ax)
+            ax.set_title("Article Count by Genre")
+            ax.set_xlabel("Count")
+            st.pyplot(fig)
+            # Display the counts for genres here
+            st.write("### Genre Counts")
+            st.write(subject_counts)
 
-    wc = WordCloud(width=800, height=400, background_color="white").generate(" ".join(word_list))
-    st.image(wc.to_array(), caption="Word Cloud")
+        with tab3:
+            st.header("Genres with Text Cleaning")
+            st.write(df[['subject', 'clean_text']].head(100))
+            # Show the cleaned text for some of the records
+            st.write("### Sample Cleaned Text")
+            st.write(df[['subject', 'clean_text']].head(10))
 
-with tabs[3]:
-    st.subheader("Sentiment Analysis")
-    analyzer = SentimentIntensityAnalyzer()
+        with tab4:
+            st.header("Word Frequency Comparison")
+            genre = st.selectbox("Choose Genre", df['subject'].dropna().unique())
+            words = " ".join(df[df['subject'] == genre]['clean_text'].dropna())
+            word_freq = Counter(words.split()).most_common(30)
+            freq_df = pd.DataFrame(word_freq, columns=['Word', 'Frequency'])
 
-    def get_sentiment(text):
-        blob = TextBlob(text)
-        vader_score = analyzer.polarity_scores(text)['compound']
-        return pd.Series([blob.sentiment.polarity, vader_score])
+            fig, ax = plt.subplots()
+            sns.barplot(x='Frequency', y='Word', data=freq_df, ax=ax)
+            ax.set_title(f"Top Words in {genre}")
+            st.pyplot(fig)
+            # Display word frequency data
+            st.write(f"### Top Words in {genre}")
+            st.write(freq_df)
 
-    df[['TextBlob_Sentiment', 'VADER_Sentiment']] = df['text'].apply(get_sentiment)
-    st.write(df[['text', 'TextBlob_Sentiment', 'VADER_Sentiment']].head(10))
+        with tab5:
+            st.header("Top Words by Subject")
+            subject = st.selectbox("Choose a subject", df['subject'].unique(), key="subject_topwords")
+            text_data = " ".join(df[df['subject'] == subject]['clean_text'])
+            wordcloud = WordCloud(width=800, height=400).generate(text_data)
+            st.image(wordcloud.to_array())
+            # Show a list of the top 10 words for the selected subject
+            word_freq_subject = Counter(text_data.split()).most_common(10)
+            word_freq_df = pd.DataFrame(word_freq_subject, columns=['Word', 'Frequency'])
+            st.write(f"### Top 10 Words in {subject}")
+            st.write(word_freq_df)
 
-    fig, ax = plt.subplots()
-    sns.histplot(df['TextBlob_Sentiment'], kde=True, label="TextBlob", color='blue')
-    sns.histplot(df['VADER_Sentiment'], kde=True, label="VADER", color='orange')
-    plt.legend()
-    st.pyplot(fig)
-
-with tabs[4]:
-    st.subheader("Named Entity Recognition (NER)")
-    sample_text = st.text_area("Enter a sentence for NER", "Apple was founded by Steve Jobs in California.")
-    doc = nlp_spacy(sample_text)
-    for ent in doc.ents:
-        st.write(f"• **{ent.text}** → {ent.label_}")
-
-with tabs[5]:
-    st.subheader("Summarization")
-    summary_text = st.text_area("Paste article or long paragraph:")
-    if st.button("Generate Summary"):
-        if len(summary_text) < 50:
-            st.warning("Text too short to summarize.")
-        else:
-            summary = summarizer(summary_text, max_length=100, min_length=30, do_sample=False)
-            st.success(summary[0]['summary_text'])
-
-with tabs[6]:
-    st.subheader("Visualization")
-
-    st.write("📊 Sentiment Over Time (if date column exists):")
-    date_col = st.selectbox("Optional: Select a date column", ["None"] + list(df.columns))
-    if date_col != "None":
-        df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
-        time_df = df.dropna(subset=[date_col])
-        st.line_chart(time_df[[date_col, 'VADER_Sentiment']].set_index(date_col).resample('W').mean())
-
-with tabs[7]:
-    st.subheader("Evaluation Metrics Guide")
-    st.markdown("""
-    **For Classification:**
-    - Accuracy, Precision, Recall, F1-score
-
-    **For Summarization:**
-    - ROUGE / BLEU
-
-    **For Topic Modeling:**
-    - Coherence Score
-
-    Use appropriate libraries like `sklearn.metrics`, `nltk.translate.bleu_score`, or `gensim.models.coherencemodel`.
-    """)
+else:
+    st.warning("Please upload your `reduced_news_data.csv` file to begin.")
