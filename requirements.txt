@@ -1,14 +1,6 @@
-streamlit
-pandas
-numpy
-nltk
-matplotlib
-seaborn
-wordcloud
-spacy
-textblob
-vaderSentiment
-gensim==4.3.0
-sumy
-scikit-learn
+streamlit==1.22.0
+pandas==1.5.3
+matplotlib==3.7.1
+seaborn==0.12.2
+wordcloud==1.8.2.2
 
