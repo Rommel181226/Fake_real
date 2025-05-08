@@ -6,9 +6,6 @@ from wordcloud import WordCloud
 import re
 from collections import Counter
 
-# Set up the page configuration
-st.set_page_config(page_title="News Sentiment Analyzer", layout="wide")
-
 # Function to load data
 @st.cache_resource
 def load_data(uploaded_file):
@@ -31,9 +28,14 @@ uploaded_file = st.file_uploader("📂 Upload your `reduced_news_data.csv` file"
 if uploaded_file:
     # Load and clean the data
     df = load_data(uploaded_file)
+    
+    # Display the columns in the dataframe to identify issues
+    st.write("### Columns in the DataFrame")
+    st.write(df.columns)
+
     df['clean_text'] = df['text'].astype(str).apply(clean_text)
 
-    # Set up tabs for the app interface
+    # Proceed with tabs and data processing after checking columns
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
         "📌 Overview", "📚 Visualizing Genres", "🧹 Genres with Text Cleaning",
         "🔡 Word Frequency Comparison", "📊 Sentiment Distribution",
@@ -73,11 +75,14 @@ if uploaded_file:
 
     with tab5:
         st.header("Sentiment Distribution")
-        sentiment_counts = df['label'].value_counts()
-        fig, ax = plt.subplots()
-        sns.barplot(x=sentiment_counts.index, y=sentiment_counts.values, palette="pastel", ax=ax)
-        ax.set_title("Sentiment Counts")
-        st.pyplot(fig)
+        if 'label' not in df.columns:
+            st.error("Column 'label' is missing in the dataset. Please check the data.")
+        else:
+            sentiment_counts = df['label'].value_counts()
+            fig, ax = plt.subplots()
+            sns.barplot(x=sentiment_counts.index, y=sentiment_counts.values, palette="pastel", ax=ax)
+            ax.set_title("Sentiment Counts")
+            st.pyplot(fig)
 
     with tab6:
         st.header("Sentiment Comparison by Genre")
