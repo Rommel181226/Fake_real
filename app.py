@@ -20,7 +20,7 @@ from nltk.sentiment.vader import SentimentIntensityAnalyzer
 from nltk.corpus import stopwords
 import nltk
 nltk.download('punkt')  # For tokenization
-nltk.download('stopwords')  # For stopword list
+
 
 # Downloads (only once)
 nltk.download('vader_lexicon')
