@@ -7,36 +7,7 @@ from collections import Counter
 import re
 from wordcloud import WordCloud
 
-# Set the page config for Netflix-like style
 st.set_page_config(page_title="News Sentiment Analyzer", layout="wide")
-
-# Apply dark theme (Streamlit custom theme)
-st.markdown("""
-    <style>
-        body {
-            background-color: #121212;
-            color: white;
-        }
-        .css-1v0mbdj {
-            background-color: #121212 !important;
-        }
-        .stButton>button {
-            background-color: #e50914;
-            color: white;
-            font-weight: bold;
-        }
-        .stSlider>div>div>div {
-            background-color: #e50914;
-        }
-        .stTextInput input {
-            background-color: #333;
-            color: white;
-        }
-        .stSelectbox>div>div {
-            background-color: #333;
-        }
-    </style>
-""", unsafe_allow_html=True)
 
 # Load your data here
 @st.cache_data
@@ -50,7 +21,6 @@ def clean_text(text):
     text = re.sub(r"[^a-zA-Z\s]", "", text)
     return text.lower()
 
-# Title and File Upload
 st.title("📰 News Sentiment Analyzer")
 uploaded_file = st.file_uploader("📂 Upload your `reduced_news_data.csv` file", type=["csv"])
 
@@ -58,12 +28,15 @@ if uploaded_file:
     df = load_data(uploaded_file)
     df['clean_text'] = df['text'].astype(str).apply(clean_text)
 
-    # Horizontal Tabs for Navigation
-    tab1, tab2, tab3, tab4, tab8 = st.tabs([
+    # Define the tabs and layout
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
         "📌 Overview", 
         "📚 Visualizing Genres", 
         "🧹 Genres with Text Cleaning",
         "🔡 Word Frequency Comparison", 
+        "📊 Sentiment Distribution",
+        "📈 Sentiment Comparison", 
+        "🔠 Top Words by Subject", 
         "⚖️ Subject-wise Sentiment Comparison"
     ])
 
@@ -75,8 +48,8 @@ if uploaded_file:
     with tab2:
         st.header("Visualizing Genres")
         subject_counts = df['subject'].value_counts()
-        fig, ax = plt.subplots(figsize=(10, 6))
-        sns.barplot(y=subject_counts.index, x=subject_counts.values, ax=ax, palette="dark:red")
+        fig, ax = plt.subplots()
+        sns.barplot(y=subject_counts.index, x=subject_counts.values, ax=ax)
         ax.set_title("Article Count by Genre")
         ax.set_xlabel("Count")
         st.pyplot(fig)
@@ -92,10 +65,30 @@ if uploaded_file:
         word_freq = Counter(words.split()).most_common(30)
         freq_df = pd.DataFrame(word_freq, columns=['Word', 'Frequency'])
 
-        fig, ax = plt.subplots(figsize=(10, 6))
-        sns.barplot(x='Frequency', y='Word', data=freq_df, ax=ax, palette="dark:red")
+        fig, ax = plt.subplots()
+        sns.barplot(x='Frequency', y='Word', data=freq_df, ax=ax)
         ax.set_title(f"Top Words in {genre}")
         st.pyplot(fig)
+
+    with tab5:
+        st.header("Sentiment Distribution")
+        sentiment_counts = df['label'].value_counts()
+        fig, ax = plt.subplots()
+        sns.barplot(x=sentiment_counts.index, y=sentiment_counts.values, palette="pastel", ax=ax)
+        ax.set_title("Sentiment Counts")
+        st.pyplot(fig)
+
+    with tab6:
+        st.header("Sentiment Comparison by Genre")
+        group = df.groupby(['subject', 'label']).size().unstack(fill_value=0)
+        st.bar_chart(group)
+
+    with tab7:
+        st.header("Top Words by Subject")
+        subject = st.selectbox("Choose a subject", df['subject'].unique(), key="subject_topwords")
+        text_data = " ".join(df[df['subject'] == subject]['clean_text'])
+        wordcloud = WordCloud(width=800, height=400).generate(text_data)
+        st.image(wordcloud.to_array())
 
     with tab8:
         st.header("Subject-wise Sentiment Comparison")
