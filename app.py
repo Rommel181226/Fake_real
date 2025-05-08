@@ -9,14 +9,14 @@ from collections import Counter
 # Set up the page configuration
 st.set_page_config(page_title="News Sentiment Analyzer", layout="wide")
 
-# Define the function to load data
-@st.cache_data
+# Function to load data
+@st.cache_resource
 def load_data(uploaded_file):
     df = pd.read_csv(uploaded_file)
     df['date'] = pd.to_datetime(df['date'], errors='coerce')
     return df
 
-# Clean the text data
+# Function to clean text
 def clean_text(text):
     text = re.sub(r"http\S+", "", text)  # Remove URLs
     text = re.sub(r"[^a-zA-Z\s]", "", text)  # Keep only alphabets and spaces
