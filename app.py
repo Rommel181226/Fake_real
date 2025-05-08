@@ -37,7 +37,7 @@ st.set_page_config(page_title="🧠 NLP Analysis App", layout="wide")
 st.title("📋 NLP Analysis Checklist App")
 
 # File uploader
-uploaded_file = st.file_uploader("📁 Upload CSV with a text column", type=["csv"])
+uploaded_file = st.file_uploader("📁 Upload your `reduced_news_data.csv` file", type=["csv"])
 if uploaded_file:
     df = pd.read_csv(uploaded_file)
     st.write(df.head())  # Check if file is uploaded and readable
