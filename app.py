@@ -6,7 +6,10 @@ from wordcloud import WordCloud
 import re
 from collections import Counter
 import nltk
+
+# Download NLTK punkt data for tokenization
 nltk.download('punkt')
+
 # Set page configuration
 st.set_page_config(page_title="News Sentiment Analyzer", layout="wide")
 
