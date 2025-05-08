@@ -1,153 +1,165 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import nltk
+from textblob import TextBlob
 import re
-import spacy
-from wordcloud import WordCloud
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
-from nltk.stem import WordNetLemmatizer
-from textblob import TextBlob
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-from transformers import pipeline
-from collections import Counter
+from wordcloud import WordCloud, STOPWORDS
+import spacy
+from gensim import corpora
+from gensim.models import LdaModel
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, classification_report
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+from nltk.tokenize import sent_tokenize
 
-# Download necessary NLTK resources
+
+# Download NLTK resources (if not already downloaded)
 nltk.download('punkt')
 nltk.download('stopwords')
-nltk.download('wordnet')
+nltk.download('vader_lexicon')  # For VADER sentiment analysis
 
-# Load spaCy model
+# Load spaCy model (if not already loaded)
 try:
-    nlp_spacy = spacy.load("en_core_web_sm")
-except:
-    from spacy.cli import download
-    download("en_core_web_sm")
-    nlp_spacy = spacy.load("en_core_web_sm")
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    !python -m spacy download en_core_web_sm
+    nlp = spacy.load("en_core_web_sm")
 
-# Load summarizer
-summarizer = pipeline("summarization")
-
-# Page setup
-st.set_page_config(page_title="🧠 NLP Dashboard", layout="wide")
-st.title("📋 NLP Analysis Dashboard")
-
-# Load data directly
-try:
-    df = pd.read_csv("reduced_news_data.csv")
-    st.success("✅ File loaded: `reduced_news_data.csv`")
-except Exception as e:
-    st.error(f"❌ Error loading CSV file: {e}")
-    st.stop()
-
-# Select text column
-text_column = st.selectbox("📌 Select the column containing text", df.columns)
-df['text'] = df[text_column].astype(str)
-
-# Clean text
-stop_words = set(stopwords.words('english'))
-lemmatizer = WordNetLemmatizer()
+# --- Define functions ---
 
 def clean_text(text):
     text = text.lower()
-    text = re.sub(r"http\S+|www\S+|https\S+", '', text, flags=re.MULTILINE)
-    text = re.sub(r'\@w+|\#','', text)
-    text = re.sub(r'[^a-zA-Z\s]', '', text)
+    text = re.sub(r'[^a-z\s]', '', text)  # Remove punctuation
     tokens = word_tokenize(text)
-    tokens = [lemmatizer.lemmatize(w) for w in tokens if w not in stop_words]
+    tokens = [word for word in tokens if word not in stop_words and len(word) > 2]
     return " ".join(tokens)
 
-df['clean_text'] = df['text'].apply(clean_text)
+def analyze_sentiment(text):
+    blob = TextBlob(text)
+    return blob.sentiment.polarity
+
+# --- Streamlit app ---
+
+st.title("Text Analysis App")
 
 # Create tabs
-tabs = st.tabs([
-    "📌 Goal", "🧹 Cleaning", "🔍 EDA", "😊 Sentiment", "🏷️ NER",
-    "📚 Summarization", "📈 Visualize", "🧪 Evaluation"
-])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Sentiment Analysis", "Word Cloud", "Word Frequency",
+                                            "Named Entity Recognition", "Topic Modeling", 
+                                            "TF-IDF & Logistic Regression"])
 
-with tabs[0]:
-    st.subheader("Define Your NLP Goal")
-    goal = st.radio("Choose your goal:", [
-        "Sentiment Analysis", "Text Classification", "Named Entity Recognition (NER)", "Summarization"
-    ])
-    st.success(f"You chose: **{goal}**")
+# Global stop words (used across multiple tabs)
+stop_words = set(stopwords.words('english'))
 
-with tabs[1]:
-    st.subheader("Cleaned Text Preview")
-    st.dataframe(df[['text', 'clean_text']].head(10))
+# --- Tab 1: Sentiment Analysis ---
+with tab1:
+    text_input = st.text_area("Enter text for analysis:", "")
 
-with tabs[2]:
-    st.subheader("Exploratory Data Analysis")
-    word_list = " ".join(df['clean_text']).split()
-    freq = Counter(word_list).most_common(30)
-    freq_df = pd.DataFrame(freq, columns=['Word', 'Frequency'])
+    if st.button("Analyze"):
+        # Clean the text
+        cleaned_text = clean_text(text_input)
 
-    fig, ax = plt.subplots()
-    sns.barplot(x='Frequency', y='Word', data=freq_df, ax=ax)
-    st.pyplot(fig)
+        # Analyze sentiment
+        polarity = analyze_sentiment(cleaned_text)
 
-    wc = WordCloud(width=800, height=400, background_color="white").generate(" ".join(word_list))
-    st.image(wc.to_array(), caption="Word Cloud")
+        # Display results
+        st.write("**Sentiment Polarity:**", polarity)
 
-with tabs[3]:
-    st.subheader("Sentiment Analysis")
-    analyzer = SentimentIntensityAnalyzer()
-
-    def get_sentiment(text):
-        blob = TextBlob(text)
-        vader_score = analyzer.polarity_scores(text)['compound']
-        return pd.Series([blob.sentiment.polarity, vader_score])
-
-    df[['TextBlob_Sentiment', 'VADER_Sentiment']] = df['text'].apply(get_sentiment)
-    st.write(df[['text', 'TextBlob_Sentiment', 'VADER_Sentiment']].head(10))
-
-    fig, ax = plt.subplots()
-    sns.histplot(df['TextBlob_Sentiment'], kde=True, label="TextBlob", color='blue')
-    sns.histplot(df['VADER_Sentiment'], kde=True, label="VADER", color='orange')
-    plt.legend()
-    st.pyplot(fig)
-
-with tabs[4]:
-    st.subheader("Named Entity Recognition (NER)")
-    sample_text = st.text_area("Enter a sentence for NER", "Apple was founded by Steve Jobs in California.")
-    doc = nlp_spacy(sample_text)
-    for ent in doc.ents:
-        st.write(f"• **{ent.text}** → {ent.label_}")
-
-with tabs[5]:
-    st.subheader("Summarization")
-    summary_text = st.text_area("Paste article or long paragraph:")
-    if st.button("Generate Summary"):
-        if len(summary_text) < 50:
-            st.warning("Text too short to summarize.")
+        if polarity > 0:
+            st.write("**Sentiment:** Positive")
+        elif polarity < 0:
+            st.write("**Sentiment:** Negative")
         else:
-            summary = summarizer(summary_text, max_length=100, min_length=30, do_sample=False)
-            st.success(summary[0]['summary_text'])
+            st.write("**Sentiment:** Neutral")
 
-with tabs[6]:
-    st.subheader("Visualization")
+# --- Tab 2: Word Cloud ---
+with tab2:
+    text_input_wc = st.text_area("Enter text for word cloud:", "")
 
-    st.write("📊 Sentiment Over Time (if date column exists):")
-    date_col = st.selectbox("Optional: Select a date column", ["None"] + list(df.columns))
-    if date_col != "None":
-        df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
-        time_df = df.dropna(subset=[date_col])
-        st.line_chart(time_df[[date_col, 'VADER_Sentiment']].set_index(date_col).resample('W').mean())
+    if st.button("Generate Word Cloud"):
+        # Clean the text
+        cleaned_text_wc = clean_text(text_input_wc)
 
-with tabs[7]:
-    st.subheader("Evaluation Metrics Guide")
-    st.markdown("""
-    **For Classification:**
-    - Accuracy, Precision, Recall, F1-score
+        # Generate and display word cloud 
+        if len(cleaned_text_wc) > 0:
+            wordcloud = WordCloud(width=800, height=400, 
+                                  background_color='white', 
+                                  stopwords=stop_words, 
+                                  min_font_size=10).generate(cleaned_text_wc)
+            
+            plt.figure(figsize=(10, 7), facecolor=None)
+            plt.imshow(wordcloud)
+            plt.axis("off")
+            plt.tight_layout(pad=0)
+            plt.title("Word Cloud", fontsize=20)
+            st.pyplot(plt)
 
-    **For Summarization:**
-    - ROUGE / BLEU
+# --- Tab 3: Word Frequency ---
+with tab3:
+    text_input_wf = st.text_area("Enter text for word frequency analysis:", "")
 
-    **For Topic Modeling:**
-    - Coherence Score
+    if st.button("Analyze Word Frequency"):
+        # Clean the text
+        cleaned_text_wf = clean_text(text_input_wf)
 
-    Use appropriate libraries like `sklearn.metrics`, `nltk.translate.bleu_score`, or `gensim.models.coherencemodel`.
-    """)
+        # Word Frequency Analysis
+        all_words = cleaned_text_wf.split()
+        freq_dist = nltk.FreqDist(all_words)
+        common_words = freq_dist.most_common(15)  # Get top 15 words
+        common_df = pd.DataFrame(common_words, columns=["Word", "Frequency"])
+
+        # Display word frequency table
+        st.write("**Top 15 Words:**")
+        st.dataframe(common_df)
+
+        # Plot word frequency
+        plt.figure(figsize=(10, 5))
+        sns.barplot(data=common_df, x='Frequency', y='Word', palette='viridis')
+        plt.title("Top 15 Words")
+        st.pyplot(plt)
+
+# --- Tab 4: Named Entity Recognition ---
+with tab4:
+    text_input_ner = st.text_area("Enter text for NER:", "")
+
+    if st.button("Run NER"):
+        # Process text with spaCy
+        doc = nlp(text_input_ner)
+
+        # Display named entities
+        st.write("**Named Entities:**")
+        for ent in doc.ents:
+            st.write(f"{ent.text} - {ent.label_}")
+
+# --- Tab 5: Topic Modeling (LDA) ---
+with tab5:
+    text_input_lda = st.text_area("Enter text for topic modeling:", "")
+
+    if st.button("Run Topic Modeling"):
+        # Clean the text
+        cleaned_text_lda = clean_text(text_input_lda)
+
+        # Prepare data for LDA
+        texts = [cleaned_text_lda.split()]  # Assuming single document for now
+        dictionary = corpora.Dictionary(texts)
+        corpus = [dictionary.doc2bow(text) for text in texts]
+
+        # Run LDA
+        lda_model = LdaModel(corpus=corpus, id2word=dictionary, num_topics=5, passes=10)
+
+        # Display topics
+        st.write("**LDA Topics:**")
+        for topic in lda_model.print_topics():
+            st.write(topic)
+
+# --- Tab 6: TF-IDF & Logistic Regression ---
+with tab6:
+    st.write("This tab would require training data and a pre-trained model for demonstration.")
+    st.write("For simplicity, it's excluded from this example.")
+    # You would add code here to load your data, train/load a model, 
+    # and make predictions on new text input.
