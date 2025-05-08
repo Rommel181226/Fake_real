@@ -10,7 +10,7 @@ from collections import Counter
 @st.cache_resource
 def load_data(uploaded_file):
     df = pd.read_csv(uploaded_file)
-    df['date'] = pd.to_datetime(df['date'], errors='coerce')
+    df['date'] = pd.to_datetime(df['date'], errors='coerce')  # Convert date column
     return df
 
 # Function to clean text
@@ -29,58 +29,56 @@ if uploaded_file:
     # Load and clean the data
     df = load_data(uploaded_file)
     
-    # Display the columns in the dataframe to identify issues
-    st.write("### Columns in the DataFrame")
-    st.write(df.columns)
+    # Check if the necessary columns exist
+    if 'text' not in df.columns or 'subject' not in df.columns:
+        st.error("The dataset must contain 'text' and 'subject' columns.")
+    else:
+        # Clean the text data
+        df['clean_text'] = df['text'].astype(str).apply(clean_text)
 
-    df['clean_text'] = df['text'].astype(str).apply(clean_text)
+        # Proceed with tabs and data processing after checking columns
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            "📌 Overview", "📚 Visualizing Genres", "🧹 Genres with Text Cleaning",
+            "🔡 Word Frequency Comparison", "🔠 Top Words by Subject"
+        ])
 
-    # Proceed with tabs and data processing after checking columns
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📌 Overview", "📚 Visualizing Genres", "🧹 Genres with Text Cleaning",
-        "🔡 Word Frequency Comparison", "🔠 Top Words by Subject"
-    ])
+        with tab1:
+            st.header("Overview")
+            st.dataframe(df.head(100))  # Display the first 100 rows of the dataframe
+            st.write(f"🧾 Total Articles: {len(df)}")
+            st.write(f"📅 Date Range: {df['date'].min()} to {df['date'].max()}")
 
-    with tab1:
-        st.header("Overview")
-        st.dataframe(df.head(100))  # Display the first 100 rows of the dataframe
-        st.write(f"🧾 Total Articles: {len(df)}")
-        st.write(f"📅 Date Range: {df['date'].min()} to {df['date'].max()}")
+        with tab2:
+            st.header("Visualizing Genres")
+            subject_counts = df['subject'].value_counts()
+            fig, ax = plt.subplots()
+            sns.barplot(y=subject_counts.index, x=subject_counts.values, ax=ax)
+            ax.set_title("Article Count by Genre")
+            ax.set_xlabel("Count")
+            st.pyplot(fig)
 
-    with tab2:
-        st.header("Visualizing Genres")
-        subject_counts = df['subject'].value_counts()
-        fig, ax = plt.subplots()
-        sns.barplot(y=subject_counts.index, x=subject_counts.values, ax=ax)
-        ax.set_title("Article Count by Genre")
-        ax.set_xlabel("Count")
-        st.pyplot(fig)
+        with tab3:
+            st.header("Genres with Text Cleaning")
+            st.write(df[['subject', 'clean_text']].head(100))
 
-    with tab3:
-        st.header("Genres with Text Cleaning")
-        st.write(df[['subject', 'clean_text']].head(100))
+        with tab4:
+            st.header("Word Frequency Comparison")
+            genre = st.selectbox("Choose Genre", df['subject'].dropna().unique())
+            words = " ".join(df[df['subject'] == genre]['clean_text'].dropna())
+            word_freq = Counter(words.split()).most_common(30)
+            freq_df = pd.DataFrame(word_freq, columns=['Word', 'Frequency'])
 
-    with tab4:
-        st.header("Word Frequency Comparison")
-        genre = st.selectbox("Choose Genre", df['subject'].dropna().unique())
-        words = " ".join(df[df['subject'] == genre]['clean_text'].dropna())
-        word_freq = Counter(words.split()).most_common(30)
-        freq_df = pd.DataFrame(word_freq, columns=['Word', 'Frequency'])
+            fig, ax = plt.subplots()
+            sns.barplot(x='Frequency', y='Word', data=freq_df, ax=ax)
+            ax.set_title(f"Top Words in {genre}")
+            st.pyplot(fig)
 
-        fig, ax = plt.subplots()
-        sns.barplot(x='Frequency', y='Word', data=freq_df, ax=ax)
-        ax.set_title(f"Top Words in {genre}")
-        st.pyplot(fig)
-
-    
-    with tab5:
-        st.header("Top Words by Subject")
-        subject = st.selectbox("Choose a subject", df['subject'].unique(), key="subject_topwords")
-        text_data = " ".join(df[df['subject'] == subject]['clean_text'])
-        wordcloud = WordCloud(width=800, height=400).generate(text_data)
-        st.image(wordcloud.to_array())
-
-    
+        with tab5:
+            st.header("Top Words by Subject")
+            subject = st.selectbox("Choose a subject", df['subject'].unique(), key="subject_topwords")
+            text_data = " ".join(df[df['subject'] == subject]['clean_text'])
+            wordcloud = WordCloud(width=800, height=400).generate(text_data)
+            st.image(wordcloud.to_array())
 
 else:
     st.warning("Please upload your `reduced_news_data.csv` file to begin.")
