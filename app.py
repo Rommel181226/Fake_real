@@ -2,84 +2,101 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from textblob import TextBlob
-import nltk
+from wordcloud import WordCloud
 import re
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
+from collections import Counter
 
-# Download required NLTK data (only once)
-nltk.download("punkt")
-nltk.download("stopwords")
+# Set page configuration
+st.set_page_config(page_title="News Sentiment Analyzer", layout="wide")
 
-stop_words = set(stopwords.words("english"))
-
-# Text cleaning function
-def clean_text(text):
-    if not isinstance(text, str):
-        return ""
-    text = text.lower()
-    text = re.sub(r"http\S+|www.\S+", "", text)
-    text = re.sub(r"[^a-z\s]", "", text)
-    tokens = word_tokenize(text)
-    filtered = [word for word in tokens if word not in stop_words and len(word) > 2]
-    return " ".join(filtered)
-
-# Sentiment analysis using TextBlob
-def analyze_sentiment(text):
-    blob = TextBlob(text)
-    polarity = blob.sentiment.polarity
-    if polarity > 0:
-        return "Positive"
-    elif polarity < 0:
-        return "Negative"
-    else:
-        return "Neutral"
-
-# Load and preprocess data
+# Cache the data loading function
 @st.cache_data
-def load_data():
-    df = pd.read_csv("data/news_cleaned.csv")  # Make sure this file exists
-    df.dropna(subset=["text"], inplace=True)
-    df["clean_text"] = df["text"].apply(clean_text)
-    df["Sentiment"] = df["clean_text"].apply(analyze_sentiment)
+def load_data(uploaded_file):
+    df = pd.read_csv(uploaded_file)
+    df['date'] = pd.to_datetime(df['date'], errors='coerce')
     return df
 
-# Streamlit App
-st.set_page_config(page_title="News Analyzer", layout="wide")
-st.title("📰 News Sentiment & Genre Analysis")
+# Clean text function for preprocessing
+def clean_text(text):
+    text = re.sub(r"http\\S+", "", text)
+    text = re.sub(r"[^a-zA-Z\\s]", "", text)
+    return text.lower()
 
-# Load dataset
-df = load_data()
+# Main app title
+st.title("📰 News Sentiment Analyzer")
 
-# Sidebar filters
-st.sidebar.header("Filter Articles")
-subjects = df["subject"].unique().tolist()
-selected_subjects = st.sidebar.multiselect("Select genres:", subjects, default=subjects)
+# File uploader for CSV file
+uploaded_file = st.file_uploader("📂 Upload your `reduced_news_data.csv` file", type=["csv"])
 
-filtered_df = df[df["subject"].isin(selected_subjects)]
+if uploaded_file:
+    # Load data and preprocess
+    df = load_data(uploaded_file)
+    df['clean_text'] = df['text'].astype(str).apply(clean_text)
 
-# Tabs
-tab1, tab2, tab3 = st.tabs(["📊 Overview", "📈 Sentiment", "🧾 Raw Data"])
+    # Define tabs
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+        "📌 Overview", "📚 Visualizing Genres", "🧹 Genres with Text Cleaning",
+        "🔡 Word Frequency Comparison", "📊 Sentiment Distribution",
+        "📈 Sentiment Comparison", "🔠 Top Words by Subject", "⚖️ Subject-wise Sentiment Comparison"
+    ])
 
-with tab1:
-    st.subheader("Articles per Genre")
-    genre_count = filtered_df["subject"].value_counts()
-    fig, ax = plt.subplots()
-    sns.barplot(x=genre_count.index, y=genre_count.values, palette="Set2", ax=ax)
-    plt.xticks(rotation=45)
-    ax.set_ylabel("Number of Articles")
-    st.pyplot(fig)
+    with tab1:
+        st.header("Overview")
+        st.dataframe(df.head(100))
+        st.write(f"🧾 Total Articles: {len(df)}")
 
-with tab2:
-    st.subheader("Sentiment Distribution")
-    sentiment_count = filtered_df["Sentiment"].value_counts()
-    fig2, ax2 = plt.subplots()
-    sns.barplot(x=sentiment_count.index, y=sentiment_count.values, palette="coolwarm", ax=ax2)
-    ax2.set_ylabel("Number of Articles")
-    st.pyplot(fig2)
+    with tab2:
+        st.header("Visualizing Genres")
+        subject_counts = df['subject'].value_counts()
+        fig, ax = plt.subplots()
+        sns.barplot(y=subject_counts.index, x=subject_counts.values, ax=ax)
+        ax.set_title("Article Count by Genre")
+        ax.set_xlabel("Count")
+        st.pyplot(fig)
 
-with tab3:
-    st.subheader("Dataset (Filtered)")
-    st.dataframe(filtered_df[["title", "subject", "Sentiment", "date", "clean_text"]])
+    with tab3:
+        st.header("Genres with Text Cleaning")
+        st.write(df[['subject', 'clean_text']].head(100))
 
+    with tab4:
+        st.header("Word Frequency Comparison")
+        genre = st.selectbox("Choose Genre", df['subject'].dropna().unique())
+        words = " ".join(df[df['subject'] == genre]['clean_text'].dropna())
+        word_freq = Counter(words.split()).most_common(30)
+        freq_df = pd.DataFrame(word_freq, columns=['Word', 'Frequency'])
+
+        fig, ax = plt.subplots()
+        sns.barplot(x='Frequency', y='Word', data=freq_df, ax=ax)
+        ax.set_title(f"Top Words in {genre}")
+        st.pyplot(fig)
+
+    with tab5:
+        st.header("Sentiment Distribution")
+        sentiment_counts = df['label'].value_counts()
+        fig, ax = plt.subplots()
+        sns.barplot(x=sentiment_counts.index, y=sentiment_counts.values, palette="pastel", ax=ax)
+        ax.set_title("Sentiment Counts")
+        st.pyplot(fig)
+
+    with tab6:
+        st.header("Sentiment Comparison by Genre")
+        group = df.groupby(['subject', 'label']).size().unstack(fill_value=0)
+        st.bar_chart(group)
+
+    with tab7:
+        st.header("Top Words by Subject")
+        subject = st.selectbox("Choose a subject", df['subject'].unique(), key="subject_topwords")
+        text_data = " ".join(df[df['subject'] == subject]['clean_text'])
+        wordcloud = WordCloud(width=800, height=400).generate(text_data)
+        st.image(wordcloud.to_array())
+
+    with tab8:
+        st.header("Subject-wise Sentiment Comparison")
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.countplot(data=df, x='subject', hue='label', palette='Set2', ax=ax)
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
+        ax.set_title("Sentiment by Subject")
+        st.pyplot(fig)
+
+else:
+    st.warning("Please upload your `reduced_news_data.csv` file to begin.")
