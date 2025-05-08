@@ -135,7 +135,10 @@ if uploaded_file:
             if date_col != "None":
                 df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
                 time_df = df.dropna(subset=[date_col])
-                st.line_chart(time_df[[date_col, 'VADER_Sentiment']].set_index(date_col).resample('W').mean())
+                if not time_df.empty:
+                    st.line_chart(time_df[[date_col, 'VADER_Sentiment']].set_index(date_col).resample('W').mean())
+                else:
+                    st.warning("No valid data for date column.")
 
         with tabs[7]:
             st.subheader("Evaluation Metrics Guide")
