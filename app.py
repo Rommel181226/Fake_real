@@ -37,7 +37,7 @@ st.set_page_config(page_title="🧠 NLP Analysis App", layout="wide")
 st.title("📋 NLP Analysis Checklist App")
 
 # File uploader
-uploaded_file = st.file_uploader("📁 Upload your `reduced_news_data.csv` file", type=["csv"])
+uploaded_file = st.file_uploader("📁 Upload CSV with a text column", type=["csv"])
 if uploaded_file:
     df = pd.read_csv(uploaded_file)
     st.write(df.head())  # Check if file is uploaded and readable
@@ -135,14 +135,11 @@ if uploaded_file:
             if date_col != "None":
                 df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
                 time_df = df.dropna(subset=[date_col])
-                if not time_df.empty:
-                    st.line_chart(time_df[[date_col, 'VADER_Sentiment']].set_index(date_col).resample('W').mean())
-                else:
-                    st.warning("No valid data for date column.")
+                st.line_chart(time_df[[date_col, 'VADER_Sentiment']].set_index(date_col).resample('W').mean())
 
         with tabs[7]:
             st.subheader("Evaluation Metrics Guide")
-            st.markdown("""
+            st.markdown(""" 
             **For Classification:**
             - Accuracy, Precision, Recall, F1-score
 
@@ -154,5 +151,6 @@ if uploaded_file:
 
             Use appropriate libraries like `sklearn.metrics`, `nltk.translate.bleu_score`, or `gensim.models.coherencemodel`.
             """)
+
 else:
     st.info("Please upload a CSV file to start your NLP journey.")
