@@ -36,7 +36,7 @@ if uploaded_file:
     df['clean_text'] = df['text'].astype(str).apply(clean_text)
 
     # Proceed with tabs and data processing after checking columns
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "📌 Overview", "📚 Visualizing Genres", "🧹 Genres with Text Cleaning",
         "🔡 Word Frequency Comparison", "🔠 Top Words by Subject"
     ])
