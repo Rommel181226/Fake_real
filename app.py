@@ -6,34 +6,34 @@ from wordcloud import WordCloud
 import re
 from collections import Counter
 
-# Set page configuration
+# Set up the page configuration
 st.set_page_config(page_title="News Sentiment Analyzer", layout="wide")
 
-# Cache the data loading function
+# Define the function to load data
 @st.cache_data
 def load_data(uploaded_file):
     df = pd.read_csv(uploaded_file)
     df['date'] = pd.to_datetime(df['date'], errors='coerce')
     return df
 
-# Clean text function for preprocessing
+# Clean the text data
 def clean_text(text):
-    text = re.sub(r"http\\S+", "", text)
-    text = re.sub(r"[^a-zA-Z\\s]", "", text)
+    text = re.sub(r"http\S+", "", text)  # Remove URLs
+    text = re.sub(r"[^a-zA-Z\s]", "", text)  # Keep only alphabets and spaces
     return text.lower()
 
-# Main app title
+# Title for the Streamlit app
 st.title("📰 News Sentiment Analyzer")
 
-# File uploader for CSV file
+# File uploader widget to upload CSV file
 uploaded_file = st.file_uploader("📂 Upload your `reduced_news_data.csv` file", type=["csv"])
 
 if uploaded_file:
-    # Load data and preprocess
+    # Load and clean the data
     df = load_data(uploaded_file)
     df['clean_text'] = df['text'].astype(str).apply(clean_text)
 
-    # Define tabs
+    # Set up tabs for the app interface
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
         "📌 Overview", "📚 Visualizing Genres", "🧹 Genres with Text Cleaning",
         "🔡 Word Frequency Comparison", "📊 Sentiment Distribution",
@@ -42,8 +42,9 @@ if uploaded_file:
 
     with tab1:
         st.header("Overview")
-        st.dataframe(df.head(100))
+        st.dataframe(df.head(100))  # Display the first 100 rows of the dataframe
         st.write(f"🧾 Total Articles: {len(df)}")
+        st.write(f"📅 Date Range: {df['date'].min()} to {df['date'].max()}")
 
     with tab2:
         st.header("Visualizing Genres")
