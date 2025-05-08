@@ -1,12 +1,10 @@
 streamlit
 pandas
-numpy
 matplotlib
 seaborn
 nltk
-spacy
 textblob
-vaderSentiment
 wordcloud
-transformers
-torch
+spacy
+gensim
+scikit-learn
