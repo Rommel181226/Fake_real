@@ -37,11 +37,10 @@ if uploaded_file:
 
     # Proceed with tabs and data processing after checking columns
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
-        "📌 Overview", "📚 Visualizing Genres", "🧹 Genres with Text Cleaning",
-        "🔡 Word Frequency Comparison", "📊 Sentiment Distribution",
-        "📈 Sentiment Comparison", "🔠 Top Words by Subject", "⚖️ Subject-wise Sentiment Comparison"
-    ])
-
+    "📌 Overview", "📚 Visualizing Genres", "🧹 Genres with Text Cleaning",
+    "🔡 Word Frequency Comparison", "📊 Visualizing Genres", 
+    "📈 Visualizing Genres with Text Cleaning", "🔠 Top Words by Subject"
+])
     with tab1:
         st.header("Overview")
         st.dataframe(df.head(100))  # Display the first 100 rows of the dataframe
@@ -74,23 +73,23 @@ if uploaded_file:
         st.pyplot(fig)
 
     with tab5:
-        st.header("Sentiment Distribution")
-        if 'label' not in df.columns:
-            st.error("Column 'label' is missing in the dataset. Please check the data.")
-        else:
-            sentiment_counts = df['label'].value_counts()
-            fig, ax = plt.subplots()
-            sns.barplot(x=sentiment_counts.index, y=sentiment_counts.values, palette="pastel", ax=ax)
-            ax.set_title("Sentiment Counts")
-            st.pyplot(fig)
+    st.header("Visualizing Genres")
+    subject_counts = df['subject'].value_counts()
+    fig, ax = plt.subplots()
+    sns.barplot(y=subject_counts.index, x=subject_counts.values, palette="Set2", ax=ax)
+    ax.set_title("Distribution of News Genres")
+    ax.set_xlabel("Number of Articles")
+    ax.set_ylabel("Genre")
+    st.pyplot(fig)
 
     with tab6:
-        st.header("Sentiment Comparison by Genre")
-        if 'label' in df.columns and 'subject' in df.columns:
-            group = df.groupby(['subject', 'label']).size().unstack(fill_value=0)
-            st.bar_chart(group)
-        else:
-            st.error("The necessary columns ('subject' and 'label') are not available in the data.")
+    st.header("Visualizing Genres with Text Cleaning")
+    st.write("Below are some cleaned samples of the articles per genre.")
+    for subject in df['subject'].unique():
+        st.subheader(f"Genre: {subject}")
+        subset = df[df['subject'] == subject]['clean_text'].head(3)
+        for i, text in enumerate(subset, start=1):
+            st.markdown(f"**Sample {i}:** {text}")
 
     with tab7:
         st.header("Top Words by Subject")
