@@ -1,10 +1,14 @@
 streamlit
 pandas
+numpy
+nltk
 matplotlib
 seaborn
-nltk
-textblob
 wordcloud
 spacy
-gensim
+textblob
+vaderSentiment
+gensim==4.3.0
+sumy
 scikit-learn
+
