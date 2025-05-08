@@ -63,6 +63,13 @@ if uploaded_file:
             st.write("### Genre Counts")
             st.write(subject_counts)
 
+            # Get top 10 most frequent words for the dataset
+            st.write("### Top 10 Most Frequent Words in the Dataset")
+            words = " ".join(df['clean_text'].dropna())
+            word_freq = Counter(words.split()).most_common(10)
+            freq_df = pd.DataFrame(word_freq, columns=['Word', 'Frequency'])
+            st.write(freq_df)
+
         with tab3:
             st.header("Genres with Text Cleaning")
             st.write(df[['subject', 'clean_text']].head(100))
@@ -96,6 +103,37 @@ if uploaded_file:
             word_freq_df = pd.DataFrame(word_freq_subject, columns=['Word', 'Frequency'])
             st.write(f"### Top 10 Words in {subject}")
             st.write(word_freq_df)
+
+        # Adding a new tab for Subject Comparison (Fake vs. Real)
+        tab6 = st.container()
+        with tab6:
+            st.header("Subject Comparison: Fake vs. Real News")
+            
+            # Assuming 'label' column distinguishes between fake and real news
+            if 'label' not in df.columns:
+                st.warning("The dataset does not have a 'label' column to distinguish fake and real news.")
+            else:
+                fake_news = df[df['label'] == 'fake']
+                real_news = df[df['label'] == 'real']
+
+                # Compare top subjects for fake and real news
+                fake_subjects = fake_news['subject'].value_counts().nlargest(10)
+                real_subjects = real_news['subject'].value_counts().nlargest(10)
+
+                fig, ax = plt.subplots(figsize=(10, 6))
+                fake_subjects.plot(kind='bar', color='red', alpha=0.5, label='Fake')
+                real_subjects.plot(kind='bar', color='blue', alpha=0.5, label='Real')
+                ax.set_title('Top 10 Subjects: Fake vs. Real News')
+                ax.set_xlabel('Subjects')
+                ax.set_ylabel('Frequency')
+                ax.legend()
+                st.pyplot(fig)
+
+                # Display the top subjects data
+                st.write("### Fake News Subjects")
+                st.write(fake_subjects)
+                st.write("### Real News Subjects")
+                st.write(real_subjects)
 
 else:
     st.warning("Please upload your `reduced_news_data.csv` file to begin.")
