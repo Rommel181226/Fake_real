@@ -47,6 +47,9 @@ if uploaded_file:
             st.dataframe(df.head(100))  # Display the first 100 rows of the dataframe
             st.write(f"🧾 Total Articles: {len(df)}")
             st.write(f"📅 Date Range: {df['date'].min()} to {df['date'].max()}")
+            # Add some additional data results in this tab
+            st.write("### Summary Statistics")
+            st.write(df.describe())
 
         with tab2:
             st.header("Visualizing Genres")
@@ -56,10 +59,16 @@ if uploaded_file:
             ax.set_title("Article Count by Genre")
             ax.set_xlabel("Count")
             st.pyplot(fig)
+            # Display the counts for genres here
+            st.write("### Genre Counts")
+            st.write(subject_counts)
 
         with tab3:
             st.header("Genres with Text Cleaning")
             st.write(df[['subject', 'clean_text']].head(100))
+            # Show the cleaned text for some of the records
+            st.write("### Sample Cleaned Text")
+            st.write(df[['subject', 'clean_text']].head(10))
 
         with tab4:
             st.header("Word Frequency Comparison")
@@ -72,6 +81,9 @@ if uploaded_file:
             sns.barplot(x='Frequency', y='Word', data=freq_df, ax=ax)
             ax.set_title(f"Top Words in {genre}")
             st.pyplot(fig)
+            # Display word frequency data
+            st.write(f"### Top Words in {genre}")
+            st.write(freq_df)
 
         with tab5:
             st.header("Top Words by Subject")
@@ -79,6 +91,11 @@ if uploaded_file:
             text_data = " ".join(df[df['subject'] == subject]['clean_text'])
             wordcloud = WordCloud(width=800, height=400).generate(text_data)
             st.image(wordcloud.to_array())
+            # Show a list of the top 10 words for the selected subject
+            word_freq_subject = Counter(text_data.split()).most_common(10)
+            word_freq_df = pd.DataFrame(word_freq_subject, columns=['Word', 'Frequency'])
+            st.write(f"### Top 10 Words in {subject}")
+            st.write(word_freq_df)
 
 else:
     st.warning("Please upload your `reduced_news_data.csv` file to begin.")
