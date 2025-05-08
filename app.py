@@ -1,101 +1,140 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from wordcloud import WordCloud
-from collections import Counter
+import nltk
 import re
-import string
+import spacy
+from wordcloud import WordCloud
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
+from textblob import TextBlob
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+from transformers import pipeline
+from collections import Counter
 
-# App title
-st.set_page_config(page_title="📰 News Sentiment Analyzer", layout="wide")
-st.title("📰 News Sentiment Analyzer")
+nltk.download('punkt')
+nltk.download('stopwords')
+nltk.download('wordnet')
 
-# Load data function
-@st.cache_resource
-def load_data(uploaded_file):
-    df = pd.read_csv(uploaded_file)
-    df['date'] = pd.to_datetime(df['date'], errors='coerce')
-    df['text'] = df['text'].astype(str)
-    return df
+# Load NLP Models
+nlp_spacy = spacy.load("en_core_web_sm")
+summarizer = pipeline("summarization")
 
-# Text cleaner
-def clean_text(text):
-    text = text.lower()
-    text = re.sub(r"http\S+", "", text)
-    text = re.sub(f"[{re.escape(string.punctuation)}]", "", text)
-    return text
+st.set_page_config(page_title="🧠 NLP Analysis App", layout="wide")
+st.title("📋 NLP Analysis Checklist App")
 
-# Upload file
-uploaded_file = st.file_uploader("📂 Upload your `reduced_news_data.csv` file", type=["csv"])
-
+# File uploader
+uploaded_file = st.file_uploader("📁 Upload CSV with a text column", type=["csv"])
 if uploaded_file:
-    df = load_data(uploaded_file)
-    df['clean_text'] = df['text'].apply(clean_text)
-    df['word_count'] = df['clean_text'].apply(lambda x: len(x.split()))
+    df = pd.read_csv(uploaded_file)
+    text_column = st.selectbox("📌 Select the column containing text", df.columns)
+    df['text'] = df[text_column].astype(str)
 
-    # Tabs
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📌 Overview", "🧹 Genres with Text Cleaning", "📈 Sentiment & Length Analysis",
-        "🔡 Word Frequency Comparison", "🔠 Top Words by Subject"
+    # Cleaning
+    stop_words = set(stopwords.words('english'))
+    lemmatizer = WordNetLemmatizer()
+
+    def clean_text(text):
+        text = text.lower()
+        text = re.sub(r"http\S+|www\S+|https\S+", '', text, flags=re.MULTILINE)
+        text = re.sub(r'\@w+|\#','', text)
+        text = re.sub(r'[^a-zA-Z\s]', '', text)
+        tokens = word_tokenize(text)
+        tokens = [lemmatizer.lemmatize(w) for w in tokens if w not in stop_words]
+        return " ".join(tokens)
+
+    df['clean_text'] = df['text'].apply(clean_text)
+
+    tabs = st.tabs([
+        "📌 Goal", "🧹 Cleaning", "🔍 EDA", "😊 Sentiment", "🏷️ NER",
+        "📚 Summarization", "📈 Visualize", "🧪 Evaluation"
     ])
 
-    with tab1:
-        st.header("📌 Overview")
-        st.subheader("Dataset Preview")
-        st.dataframe(df.head(100))
+    with tabs[0]:
+        st.subheader("Define Your NLP Goal")
+        goal = st.radio("Choose your goal:", [
+            "Sentiment Analysis", "Text Classification", "Named Entity Recognition (NER)", "Summarization"
+        ])
+        st.success(f"You chose: **{goal}**")
 
-        st.subheader("🧾 Summary")
-        st.write(f"Total Articles: {len(df)}")
-        st.write(f"Date Range: {df['date'].min().date()} to {df['date'].max().date()}")
+    with tabs[1]:
+        st.subheader("Cleaned Text Preview")
+        st.dataframe(df[['text', 'clean_text']].head(10))
 
-        st.subheader("📊 Articles Over Time")
-        time_data = df['date'].value_counts().sort_index()
-        fig, ax = plt.subplots(figsize=(10, 4))
-        time_data.plot(ax=ax)
-        ax.set_title("Articles Published Over Time")
-        ax.set_ylabel("Number of Articles")
-        st.pyplot(fig)
-
-        st.subheader("📌 Top Subjects")
-        top_subjects = df['subject'].value_counts().nlargest(10)
-        fig, ax = plt.subplots()
-        sns.barplot(y=top_subjects.index, x=top_subjects.values, ax=ax)
-        ax.set_title("Top 10 Subjects")
-        ax.set_xlabel("Count")
-        st.pyplot(fig)
-
-    with tab2:
-        st.header("🧹 Cleaned Text View")
-        st.dataframe(df[['subject', 'clean_text']].head(100))
-
-    with tab3:
-        st.header("📈 Sentiment & Word Count Distribution")
-        st.subheader("📌 Word Count Distribution")
-        fig, ax = plt.subplots()
-        sns.histplot(df['word_count'], bins=50, kde=True, ax=ax)
-        ax.set_title("Distribution of Article Length (in words)")
-        ax.set_xlabel("Word Count")
-        st.pyplot(fig)
-
-    with tab4:
-        st.header("🔡 Word Frequency by Genre")
-        genre = st.selectbox("Choose Genre", df['subject'].dropna().unique())
-        words = " ".join(df[df['subject'] == genre]['clean_text'].dropna())
-        word_freq = Counter(words.split()).most_common(30)
-        freq_df = pd.DataFrame(word_freq, columns=['Word', 'Frequency'])
+    with tabs[2]:
+        st.subheader("Exploratory Data Analysis")
+        word_list = " ".join(df['clean_text']).split()
+        freq = Counter(word_list).most_common(30)
+        freq_df = pd.DataFrame(freq, columns=['Word', 'Frequency'])
 
         fig, ax = plt.subplots()
         sns.barplot(x='Frequency', y='Word', data=freq_df, ax=ax)
-        ax.set_title(f"Top Words in {genre}")
         st.pyplot(fig)
 
-    with tab5:
-        st.header("🔠 Top Words by Subject (Word Cloud)")
-        subject = st.selectbox("Choose a subject", df['subject'].unique(), key="subject_wordcloud")
-        text_data = " ".join(df[df['subject'] == subject]['clean_text'])
-        wordcloud = WordCloud(width=800, height=400, background_color='white').generate(text_data)
-        st.image(wordcloud.to_array(), use_column_width=True)
+        wc = WordCloud(width=800, height=400, background_color="white").generate(" ".join(word_list))
+        st.image(wc.to_array(), caption="Word Cloud")
 
+    with tabs[3]:
+        st.subheader("Sentiment Analysis")
+        analyzer = SentimentIntensityAnalyzer()
+
+        def get_sentiment(text):
+            blob = TextBlob(text)
+            vader_score = analyzer.polarity_scores(text)['compound']
+            return pd.Series([blob.sentiment.polarity, vader_score])
+
+        df[['TextBlob_Sentiment', 'VADER_Sentiment']] = df['text'].apply(get_sentiment)
+        st.write(df[['text', 'TextBlob_Sentiment', 'VADER_Sentiment']].head(10))
+
+        fig, ax = plt.subplots()
+        sns.histplot(df['TextBlob_Sentiment'], kde=True, label="TextBlob", color='blue')
+        sns.histplot(df['VADER_Sentiment'], kde=True, label="VADER", color='orange')
+        plt.legend()
+        st.pyplot(fig)
+
+    with tabs[4]:
+        st.subheader("Named Entity Recognition (NER)")
+        sample_text = st.text_area("Enter a sentence for NER", "Apple was founded by Steve Jobs in California.")
+        doc = nlp_spacy(sample_text)
+        for ent in doc.ents:
+            st.write(f"• **{ent.text}** → {ent.label_}")
+
+    with tabs[5]:
+        st.subheader("Summarization")
+        summary_text = st.text_area("Paste article or long paragraph:")
+        if st.button("Generate Summary"):
+            if len(summary_text) < 50:
+                st.warning("Text too short to summarize.")
+            else:
+                summary = summarizer(summary_text, max_length=100, min_length=30, do_sample=False)
+                st.success(summary[0]['summary_text'])
+
+    with tabs[6]:
+        st.subheader("Visualization")
+
+        st.write("📊 Sentiment Over Time (if date column exists):")
+        date_col = st.selectbox("Optional: Select a date column", ["None"] + list(df.columns))
+        if date_col != "None":
+            df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+            time_df = df.dropna(subset=[date_col])
+            st.line_chart(time_df[[date_col, 'VADER_Sentiment']].set_index(date_col).resample('W').mean())
+
+    with tabs[7]:
+        st.subheader("Evaluation Metrics Guide")
+        st.markdown("""
+        **For Classification:**
+        - Accuracy, Precision, Recall, F1-score
+        
+        **For Summarization:**
+        - ROUGE / BLEU
+        
+        **For Topic Modeling:**
+        - Coherence Score
+        
+        Use appropriate libraries like `sklearn.metrics`, `nltk.translate.bleu_score`, or `gensim.models.coherencemodel`.
+        """)
 else:
-    st.warning("⚠️ Please upload your `reduced_news_data.csv` file to begin analysis.")
+    st.info("Please upload a CSV file to start your NLP journey.")
