@@ -5,7 +5,8 @@ import seaborn as sns
 from wordcloud import WordCloud
 import re
 from collections import Counter
-
+import nltk
+nltk.download('punkt')
 # Set page configuration
 st.set_page_config(page_title="News Sentiment Analyzer", layout="wide")
 
