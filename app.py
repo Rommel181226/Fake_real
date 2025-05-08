@@ -73,23 +73,23 @@ if uploaded_file:
         st.pyplot(fig)
 
     with tab5:
-    st.header("Visualizing Genres")
-    subject_counts = df['subject'].value_counts()
-    fig, ax = plt.subplots()
-    sns.barplot(y=subject_counts.index, x=subject_counts.values, palette="Set2", ax=ax)
-    ax.set_title("Distribution of News Genres")
-    ax.set_xlabel("Number of Articles")
-    ax.set_ylabel("Genre")
-    st.pyplot(fig)
+        st.header("Visualizing Genres")
+        subject_counts = df['subject'].value_counts()
+        fig, ax = plt.subplots()
+        sns.barplot(y=subject_counts.index, x=subject_counts.values, palette="Set2", ax=ax)
+        ax.set_title("Distribution of News Genres")
+        ax.set_xlabel("Number of Articles")
+        ax.set_ylabel("Genre")
+        st.pyplot(fig)
 
     with tab6:
-    st.header("Visualizing Genres with Text Cleaning")
-    st.write("Below are some cleaned samples of the articles per genre.")
-    for subject in df['subject'].unique():
-        st.subheader(f"Genre: {subject}")
-        subset = df[df['subject'] == subject]['clean_text'].head(3)
-        for i, text in enumerate(subset, start=1):
-            st.markdown(f"**Sample {i}:** {text}")
+        st.header("Visualizing Genres with Text Cleaning")
+        st.write("Below are some cleaned samples of the articles per genre.")
+        for subject in df['subject'].unique():
+            st.subheader(f"Genre: {subject}")
+            subset = df[df['subject'] == subject]['clean_text'].head(3)
+            for i, text in enumerate(subset, start=1):
+                st.markdown(f"**Sample {i}:** {text}")
 
     with tab7:
         st.header("Top Words by Subject")
