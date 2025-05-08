@@ -38,8 +38,7 @@ if uploaded_file:
     # Proceed with tabs and data processing after checking columns
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
         "📌 Overview", "📚 Visualizing Genres", "🧹 Genres with Text Cleaning",
-        "🔡 Word Frequency Comparison", "📊 Sentiment Distribution",
-        "📈 Sentiment Comparison", "🔠 Top Words by Subject", "⚖️ Subject-wise Sentiment Comparison"
+        "🔡 Word Frequency Comparison", "🔠 Top Words by Subject"
     ])
 
     with tab1:
@@ -73,42 +72,15 @@ if uploaded_file:
         ax.set_title(f"Top Words in {genre}")
         st.pyplot(fig)
 
+    
     with tab5:
-        st.header("Sentiment Distribution")
-        if 'label' not in df.columns:
-            st.error("Column 'label' is missing in the dataset. Please check the data.")
-        else:
-            sentiment_counts = df['label'].value_counts()
-            fig, ax = plt.subplots()
-            sns.barplot(x=sentiment_counts.index, y=sentiment_counts.values, palette="pastel", ax=ax)
-            ax.set_title("Sentiment Counts")
-            st.pyplot(fig)
-
-    with tab6:
-        st.header("Sentiment Comparison by Genre")
-        if 'label' in df.columns and 'subject' in df.columns:
-            group = df.groupby(['subject', 'label']).size().unstack(fill_value=0)
-            st.bar_chart(group)
-        else:
-            st.error("The necessary columns ('subject' and 'label') are not available in the data.")
-
-    with tab7:
         st.header("Top Words by Subject")
         subject = st.selectbox("Choose a subject", df['subject'].unique(), key="subject_topwords")
         text_data = " ".join(df[df['subject'] == subject]['clean_text'])
         wordcloud = WordCloud(width=800, height=400).generate(text_data)
         st.image(wordcloud.to_array())
 
-    with tab8:
-        st.header("Subject-wise Sentiment Comparison")
-        if 'subject' in df.columns and 'label' in df.columns:
-            fig, ax = plt.subplots(figsize=(10, 6))
-            sns.countplot(data=df, x='subject', hue='label', palette='Set2', ax=ax)
-            ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
-            ax.set_title("Sentiment by Subject")
-            st.pyplot(fig)
-        else:
-            st.error("The necessary columns ('subject' and 'label') are not available in the data.")
+    
 
 else:
     st.warning("Please upload your `reduced_news_data.csv` file to begin.")
